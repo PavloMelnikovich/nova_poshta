@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ua">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поштомати Нової пошти</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #container {
+            text-align: center;
+        }
+        #cityInput {
+            padding: 10px;
+            width: 300px;
+            font-size: 16px;
+        }
+        #submitButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: left;
+        }
+        #warehousesSelect {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h2>Знайти поштомати Нової пошти у вашому місті</h2>
+        <input type="text" id="cityInput" placeholder="Введіть назву міста">
+        <button onclick="searchPostomat()">Знайти</button>
+        <div id="results"></div>
+        <select id="warehousesSelect" style="display: none;"></select>
+    </div>
+
+    <script>
+        function searchPostomat() {
+            const city = document.getElementById('cityInput').value.trim();
+            if (city === '') {
+                alert('Будь ласка, введіть назву міста.');
+                return;
+            }
+
+            fetch(`https://api.novaposhta.ua/v2.0/json/Address/searchSettlements/?apiKey=a192b39afc2d5a5bea6b980244e51607&modelName=Address&method=getCities&CityName=${encodeURIComponent(city)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Виникла помилка під час пошуку міста.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const cities = data.data;
+                    if (cities.length > 0) {
+                        const cityRef = cities[0].Ref;
+                        return fetch(`https://api.novaposhta.ua/v2.0/json/AddressGeneral/getWarehouses/?apiKey=a192b39afc2d5a5bea6b980244e51607&modelName=AddressGeneral&calledMethod=getWarehouses&method=findWarehouses&CityRef=${cityRef}`)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Виникла помилка під час отримання поштоматів.');
+                                }
+                                return response.json();
+                            });
+                    } else {
+                        throw new Error('Місто не знайдено.');
+                    }
+                })
+                .then(data => {
+                    const warehouses = data.data;
+                    const resultsContainer = document.getElementById('results');
+                    resultsContainer.innerHTML = `<h3>Поштомати у місті ${city}:</h3>`;
+                    if (warehouses.length > 0) {
+                        const select = document.getElementById('warehousesSelect');
+                        select.innerHTML = ''; // Очистимо попередній вміст списку
+                        warehouses.forEach(warehouse => {
+                            const option = document.createElement('option');
+                            option.textContent = warehouse.Description;
+                            select.appendChild(option);
+                        });
+                        select.style.display = 'block'; // Показати випадаючий список
+                    } else {
+                        resultsContainer.innerHTML += '<p>Поштоматів не знайдено.</p>';
+                        document.getElementById('warehousesSelect').style.display = 'none'; // Сховати випадаючий список
+                    }
+                })
+                .catch(error => {
+                    console.error('Помилка:', error);
+                    alert(error.message);
+                });
+        }
+    </script>
+</body>
+</html>
